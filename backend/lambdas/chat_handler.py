@@ -6,8 +6,9 @@ import uuid
 from decimal import Decimal
 
 # Initialize AWS clients
-dynamodb = boto3.resource('dynamodb')
-sagemaker_runtime = boto3.client('sagemaker-runtime')
+aws_region = os.environ.get('AWS_REGION') or os.environ.get('AWS_DEFAULT_REGION') or 'us-east-1'
+dynamodb = boto3.resource('dynamodb', region_name=aws_region)
+sagemaker_runtime = boto3.client('sagemaker-runtime', region_name=aws_region)
 
 # Environment variables
 DYNAMODB_TABLE = os.environ['DYNAMODB_TABLE']
