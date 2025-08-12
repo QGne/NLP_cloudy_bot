@@ -110,7 +110,7 @@ jobs:
         terraform apply -auto-approve tfplan
     
     - name: Get deployment outputs
-      id: terraform-output
+      id: terraform_output
       run: |
         cd terraform
         echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> $GITHUB_OUTPUT
@@ -119,7 +119,7 @@ jobs:
     
     - name: Wait for SageMaker endpoint
       run: |
-        ENDPOINT_NAME="${{ steps.terraform-output.outputs.sagemaker_endpoint_name }}"
+        ENDPOINT_NAME="${{ steps.terraform_output.outputs.sagemaker_endpoint_name }}"
         echo "Waiting for SageMaker endpoint: $ENDPOINT_NAME"
         
         max_attempts=30
@@ -148,43 +148,29 @@ jobs:
     
     - name: Test deployment
       run: |
-        pip install requests
-        
-        # Test API Gateway health
-        API_URL="${{ steps.terraform-output.outputs.api_gateway_url }}"
+        API_URL="${{ steps.terraform_output.outputs.api_gateway_url }}"
         echo "Testing API at: $API_URL"
         
-        # Simple health check
-        python3 -c "
-import requests
-import json
-import sys
-
-api_url = '$API_URL/chat'
-payload = {'message': 'Hello, this is a CI/CD test', 'session_id': 'ci-test-123'}
-
-try:
-    response = requests.post(api_url, json=payload, timeout=30)
-    print(f'Status Code: {response.status_code}')
-    print(f'Response: {response.text}')
-    
-    if response.status_code == 200:
-        print('✅ API test passed!')
-    else:
-        print('❌ API test failed!')
-        sys.exit(1)
-except Exception as e:
-    print(f'❌ API test error: {e}')
-    sys.exit(1)
-        "
+        http_code=$(curl -s -o response.txt -w "%{http_code}" -X POST "$API_URL/chat" \
+          -H "Content-Type: application/json" \
+          -d '{"message":"Hello, this is a CI/CD test","session_id":"ci-test-123"}')
+        echo "Status Code: $http_code"
+        echo "Response: $(cat response.txt)"
+        
+        if [ "$http_code" -eq 200 ]; then
+          echo "✅ API test passed!"
+        else
+          echo "❌ API test failed!"
+          exit 1
+        fi
     
     - name: Deployment summary
       run: |
         echo "🎉 Deployment completed successfully!"
         echo "📊 Deployment Information:"
-        echo "   API Gateway URL: ${{ steps.terraform-output.outputs.api_gateway_url }}"
-        echo "   Lambda Function: ${{ steps.terraform-output.outputs.lambda_function_name }}"
-        echo "   SageMaker Endpoint: ${{ steps.terraform-output.outputs.sagemaker_endpoint_name }}"
+        echo "   API Gateway URL: ${{ steps.terraform_output.outputs.api_gateway_url }}"
+        echo "   Lambda Function: ${{ steps.terraform_output.outputs.lambda_function_name }}"
+        echo "   SageMaker Endpoint: ${{ steps.terraform_output.outputs.sagemaker_endpoint_name }}"
         echo ""
         echo "🔗 Test the CLI:"
         echo "   git clone <repo> && cd chatbot-saas-prototype"
