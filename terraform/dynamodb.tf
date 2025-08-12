@@ -21,9 +21,10 @@ resource "aws_dynamodb_table" "conversations" {
   }
 
   global_secondary_index {
-    name     = "session-index"
-    hash_key = "session_id"
-    range_key = "timestamp"
+    name               = "session-index"
+    hash_key           = "session_id"
+    range_key          = "timestamp"
+    projection_type    = "ALL"
   }
 
   tags = {

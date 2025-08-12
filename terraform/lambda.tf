@@ -97,13 +97,6 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 resource "aws_api_gateway_rest_api" "main" {
   name        = "${var.project_name}-api-${random_id.suffix.hex}"
   description = "ChatBot SaaS API"
-
-  cors_configuration {
-    allow_credentials = false
-    allow_headers     = ["content-type"]
-    allow_methods     = ["*"]
-    allow_origins     = ["*"]
-  }
 }
 
 # API Gateway resource
