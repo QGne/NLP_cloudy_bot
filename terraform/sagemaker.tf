@@ -75,7 +75,7 @@ resource "aws_sagemaker_model" "chatbot" {
   execution_role_arn = aws_iam_role.sagemaker_role.arn
 
   primary_container {
-    image = data.aws_sagemaker_prebuilt_ecr_image.huggingface_cpu.image_uri
+    image = data.aws_sagemaker_prebuilt_ecr_image.huggingface_cpu.registry_path
 
     environment = {
       HF_MODEL_ID = var.model_name
