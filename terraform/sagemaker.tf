@@ -63,13 +63,19 @@ resource "aws_iam_role_policy" "sagemaker_policy" {
   })
 }
 
+# Resolve a valid SageMaker prebuilt Hugging Face inference image URI (CPU)
+data "aws_sagemaker_prebuilt_ecr_image" "huggingface_cpu" {
+  repository_name = "huggingface-pytorch-inference"
+  tag             = "1.13.1-transformers4.30.2-cpu-py39-ubuntu20.04"
+}
+
 # SageMaker model
 resource "aws_sagemaker_model" "chatbot" {
   name               = "${var.project_name}-model-${random_id.suffix.hex}"
   execution_role_arn = aws_iam_role.sagemaker_role.arn
 
   primary_container {
-    image = "763104351884.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/huggingface-pytorch-inference:1.12-transformers4.21-cpu-py39-ubuntu20.04"
+    image = data.aws_sagemaker_prebuilt_ecr_image.huggingface_cpu.image_uri
     
     environment = {
       HF_MODEL_ID = var.model_name
