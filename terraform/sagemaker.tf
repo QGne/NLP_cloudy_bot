@@ -1,4 +1,4 @@
-# terraform/sagemaker.tf - IAM-friendly version without tags
+# terraform/sagemaker.tf - Robust IAM configuration
 
 # S3 bucket for model storage
 resource "aws_s3_bucket" "model_bucket" {
@@ -12,7 +12,7 @@ resource "aws_s3_bucket_versioning" "model_bucket_versioning" {
   }
 }
 
-# IAM role for SageMaker (no tags to avoid permission issues)
+# Use AWS managed policy that includes everything SageMaker needs
 resource "aws_iam_role" "sagemaker_role" {
   name = "${var.project_name}-sagemaker-role-${random_id.suffix.hex}"
 
@@ -30,15 +30,21 @@ resource "aws_iam_role" "sagemaker_role" {
   })
 }
 
-# Attach the AWS managed policy for SageMaker execution
+# Use the comprehensive AWS managed policy
 resource "aws_iam_role_policy_attachment" "sagemaker_execution_role" {
   role       = aws_iam_role.sagemaker_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
 }
 
-# Additional custom policy for specific S3 bucket access and ECR
-resource "aws_iam_role_policy" "sagemaker_policy" {
-  name = "${var.project_name}-sagemaker-policy"
+# Additional policy for ECR access (needed for Docker images)
+resource "aws_iam_role_policy_attachment" "sagemaker_ecr_role" {
+  role       = aws_iam_role.sagemaker_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+# Custom policy for S3 bucket access
+resource "aws_iam_role_policy" "sagemaker_s3_policy" {
+  name = "${var.project_name}-sagemaker-s3-policy"
   role = aws_iam_role.sagemaker_role.id
 
   policy = jsonencode({
@@ -56,22 +62,12 @@ resource "aws_iam_role_policy" "sagemaker_policy" {
           aws_s3_bucket.model_bucket.arn,
           "${aws_s3_bucket.model_bucket.arn}/*"
         ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ecr:GetAuthorizationToken",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage"
-        ]
-        Resource = "*"
       }
     ]
   })
 }
 
-# Use a known working SageMaker image URI
+# Use a known working SageMaker image URI for us-east-1
 locals {
   sagemaker_image_uri = "763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:2.0.0-transformers4.28.1-cpu-py310-ubuntu20.04"
 }
@@ -92,9 +88,11 @@ resource "aws_sagemaker_model" "chatbot" {
     }
   }
 
+  # Ensure all IAM policies are attached before creating the model
   depends_on = [
     aws_iam_role_policy_attachment.sagemaker_execution_role,
-    aws_iam_role_policy.sagemaker_policy
+    aws_iam_role_policy_attachment.sagemaker_ecr_role,
+    aws_iam_role_policy.sagemaker_s3_policy
   ]
 
   tags = {
