@@ -92,10 +92,10 @@ resource "aws_sagemaker_model" "chatbot" {
     image = data.aws_sagemaker_prebuilt_ecr_image.huggingface_inference.registry_path
 
     environment = {
-      HF_MODEL_ID    = var.model_name
-      HF_TASK        = "text-generation"
+      HF_MODEL_ID                   = var.model_name
+      HF_TASK                       = "text-generation"
       SAGEMAKER_CONTAINER_LOG_LEVEL = "20"
-      SAGEMAKER_REGION = var.aws_region
+      SAGEMAKER_REGION              = var.aws_region
     }
   }
 
@@ -115,11 +115,11 @@ resource "aws_sagemaker_endpoint_configuration" "chatbot" {
   name = "${var.project_name}-endpoint-config-${random_id.suffix.hex}"
 
   production_variants {
-    variant_name                 = "AllTraffic"
-    model_name                  = aws_sagemaker_model.chatbot.name
-    initial_instance_count      = 1
-    instance_type              = "ml.t2.medium"
-    initial_variant_weight     = 1
+    variant_name           = "AllTraffic"
+    model_name             = aws_sagemaker_model.chatbot.name
+    initial_instance_count = 1
+    instance_type          = "ml.t2.medium"
+    initial_variant_weight = 1
   }
 
   tags = {
