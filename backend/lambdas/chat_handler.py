@@ -26,35 +26,23 @@ def lambda_handler(event, context):
             body = event  # For direct invocation
         
         message = body.get('message', '')
-        question = body.get('question')
-        context_text = body.get('context')
         session_id = body.get('session_id', str(uuid.uuid4()))
         
-        # Backward-compatible parsing: allow "question|||context" in message
-        if (not question) and message:
-            if '|||' in message:
-                parts = message.split('|||', 1)
-                question = parts[0].strip()
-                context_text = parts[1].strip()
-            else:
-                question = message.strip()
-        
-        # Validate required inputs for QA
-        if not question or not context_text:
+        if not message:
             return {
                 'statusCode': 400,
                 'headers': {
                     'Access-Control-Allow-Origin': '*',
                     'Content-Type': 'application/json'
                 },
-                'body': json.dumps({'error': 'Both question and context are required. Provide fields "question" and "context", or use "question|||context" in "message".'})
+                'body': json.dumps({'error': 'Message is required'})
             }
         
         # Generate AI response
-        ai_response = get_ai_response(question, context_text)
+        ai_response = get_ai_response(message)
         
         # Store conversation in DynamoDB
-        store_conversation(session_id, question, ai_response)
+        store_conversation(session_id, message, ai_response)
         
         # Return response
         return {
@@ -81,16 +69,18 @@ def lambda_handler(event, context):
             'body': json.dumps({'error': f'Internal server error: {str(e)}'})
         }
 
-def get_ai_response(question, context_text):
+def get_ai_response(message):
     """
-    Get answer from SageMaker endpoint using Hugging Face question-answering pipeline
+    Get response from SageMaker endpoint
     """
     try:
-        # Prepare payload for HuggingFace QA model
+        # Prepare payload for HuggingFace model
         payload = {
-            "inputs": {
-                "question": question,
-                "context": context_text
+            "inputs": message,
+            "parameters": {
+                "max_length": 100,
+                "num_return_sequences": 1,
+                "temperature": 0.7
             }
         }
         
@@ -104,19 +94,18 @@ def get_ai_response(question, context_text):
         # Parse response
         result = json.loads(response['Body'].read().decode())
         
-        # HF QA may return a dict or a list of dicts
-        if isinstance(result, dict):
-            answer = result.get('answer') or result.get('generated_text') or ''
-        elif isinstance(result, list) and len(result) > 0:
-            first = result[0]
-            if isinstance(first, dict):
-                answer = first.get('answer') or first.get('generated_text') or ''
+        # Extract generated text
+        if isinstance(result, list) and len(result) > 0:
+            generated_text = result[0].get('generated_text', '')
+            # Clean up the response (remove original input)
+            if message in generated_text:
+                ai_response = generated_text.replace(message, '').strip()
             else:
-                answer = str(first)
+                ai_response = generated_text
         else:
-            answer = ''
+            ai_response = "I'm sorry, I couldn't generate a response."
         
-        return answer if answer else "I'm sorry, I could not find an answer in the provided context."
+        return ai_response if ai_response else "I'm here to help! Could you please rephrase your question?"
         
     except Exception as e:
         print(f"SageMaker error: {str(e)}")
