@@ -76,7 +76,7 @@ resource "aws_sagemaker_model" "chatbot" {
 
   primary_container {
     image = data.aws_sagemaker_prebuilt_ecr_image.huggingface_cpu.image_uri
-    
+
     environment = {
       HF_MODEL_ID = var.model_name
       HF_TASK     = "text-generation"
