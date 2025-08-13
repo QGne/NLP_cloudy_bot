@@ -63,10 +63,11 @@ resource "aws_iam_role_policy" "sagemaker_policy" {
   })
 }
 
-# Resolve a valid SageMaker prebuilt Hugging Face inference image URI (CPU)
-data "aws_sagemaker_prebuilt_ecr_image" "huggingface_cpu" {
+# Use a simpler approach with a known working image
+# Option 1: Use the latest available Hugging Face image
+data "aws_sagemaker_prebuilt_ecr_image" "huggingface_inference" {
   repository_name = "huggingface-pytorch-inference"
-  image_tag       = "1.13.1-transformers4.28.1-cpu-py39-ubuntu20.04"
+  image_tag       = "2.0.0-transformers4.28.1-cpu-py310-ubuntu20.04"
 }
 
 # SageMaker model
@@ -75,11 +76,13 @@ resource "aws_sagemaker_model" "chatbot" {
   execution_role_arn = aws_iam_role.sagemaker_role.arn
 
   primary_container {
-    image = data.aws_sagemaker_prebuilt_ecr_image.huggingface_cpu.registry_path
+    image = data.aws_sagemaker_prebuilt_ecr_image.huggingface_inference.registry_path
 
     environment = {
-      HF_MODEL_ID = var.model_name
-      HF_TASK     = "text-generation"
+      HF_MODEL_ID    = var.model_name
+      HF_TASK        = "text-generation"
+      SAGEMAKER_CONTAINER_LOG_LEVEL = "20"
+      SAGEMAKER_REGION = var.aws_region
     }
   }
 
@@ -89,18 +92,16 @@ resource "aws_sagemaker_model" "chatbot" {
   }
 }
 
-# SageMaker endpoint configuration (serverless)
+# SageMaker endpoint configuration (using instance-based instead of serverless for stability)
 resource "aws_sagemaker_endpoint_configuration" "chatbot" {
   name = "${var.project_name}-endpoint-config-${random_id.suffix.hex}"
 
   production_variants {
-    variant_name = "AllTraffic"
-    model_name   = aws_sagemaker_model.chatbot.name
-
-    serverless_config {
-      memory_size_in_mb = 2048
-      max_concurrency   = 5
-    }
+    variant_name                 = "AllTraffic"
+    model_name                  = aws_sagemaker_model.chatbot.name
+    initial_instance_count      = 1
+    instance_type              = "ml.t2.medium"
+    initial_variant_weight     = 1
   }
 
   tags = {
