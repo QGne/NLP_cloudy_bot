@@ -1,4 +1,4 @@
-# terraform/sagemaker.tf - Robust IAM configuration
+# terraform/sagemaker.tf - Fixed with proper IAM timing
 
 # S3 bucket for model storage
 resource "aws_s3_bucket" "model_bucket" {
@@ -12,7 +12,7 @@ resource "aws_s3_bucket_versioning" "model_bucket_versioning" {
   }
 }
 
-# Use AWS managed policy that includes everything SageMaker needs
+# IAM role for SageMaker with minimal policy first
 resource "aws_iam_role" "sagemaker_role" {
   name = "${var.project_name}-sagemaker-role-${random_id.suffix.hex}"
 
@@ -30,49 +30,44 @@ resource "aws_iam_role" "sagemaker_role" {
   })
 }
 
-# Use the comprehensive AWS managed policy
+# Step 1: Attach basic SageMaker execution policy
 resource "aws_iam_role_policy_attachment" "sagemaker_execution_role" {
   role       = aws_iam_role.sagemaker_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
 }
 
-# Additional policy for ECR access (needed for Docker images)
-resource "aws_iam_role_policy_attachment" "sagemaker_ecr_role" {
-  role       = aws_iam_role.sagemaker_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+# Step 2: Wait for IAM role to propagate using null_resource with local-exec
+resource "null_resource" "wait_for_iam_propagation" {
+  provisioner "local-exec" {
+    command = "sleep 60" # Wait 60 seconds for IAM propagation
+  }
+
+  depends_on = [
+    aws_iam_role.sagemaker_role,
+    aws_iam_role_policy_attachment.sagemaker_execution_role
+  ]
 }
 
-# Custom policy for S3 bucket access
-resource "aws_iam_role_policy" "sagemaker_s3_policy" {
-  name = "${var.project_name}-sagemaker-s3-policy"
-  role = aws_iam_role.sagemaker_role.id
+# Step 3: Verify the role exists using AWS CLI
+resource "null_resource" "verify_iam_role" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Verifying IAM role exists..."
+      aws iam get-role --role-name ${aws_iam_role.sagemaker_role.name}
+      echo "Role verification complete"
+    EOT
+  }
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          aws_s3_bucket.model_bucket.arn,
-          "${aws_s3_bucket.model_bucket.arn}/*"
-        ]
-      }
-    ]
-  })
+  depends_on = [null_resource.wait_for_iam_propagation]
 }
 
-# Use a known working SageMaker image URI for us-east-1
+# Use a known working image (different approach - try CPU inference)
 locals {
-  sagemaker_image_uri = "763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:2.0.0-transformers4.28.1-cpu-py310-ubuntu20.04"
+  # Try a more basic/stable image first
+  sagemaker_image_uri = "763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:1.13.1-transformers4.26.0-cpu-py39-ubuntu20.04"
 }
 
-# SageMaker model
+# SageMaker model - created only after IAM verification
 resource "aws_sagemaker_model" "chatbot" {
   name               = "${var.project_name}-model-${random_id.suffix.hex}"
   execution_role_arn = aws_iam_role.sagemaker_role.arn
@@ -81,18 +76,13 @@ resource "aws_sagemaker_model" "chatbot" {
     image = local.sagemaker_image_uri
 
     environment = {
-      HF_MODEL_ID                   = var.model_name
-      HF_TASK                       = "text-generation"
-      SAGEMAKER_CONTAINER_LOG_LEVEL = "20"
-      SAGEMAKER_REGION              = var.aws_region
+      HF_MODEL_ID = var.model_name
+      HF_TASK     = "text-generation"
     }
   }
 
-  # Ensure all IAM policies are attached before creating the model
   depends_on = [
-    aws_iam_role_policy_attachment.sagemaker_execution_role,
-    aws_iam_role_policy_attachment.sagemaker_ecr_role,
-    aws_iam_role_policy.sagemaker_s3_policy
+    null_resource.verify_iam_role
   ]
 
   tags = {
@@ -119,7 +109,7 @@ resource "aws_sagemaker_endpoint_configuration" "chatbot" {
   }
 }
 
-# SageMaker endpoint
+# SageMaker endpoint - only create after everything is ready
 resource "aws_sagemaker_endpoint" "chatbot" {
   name                 = "${var.project_name}-endpoint-${random_id.suffix.hex}"
   endpoint_config_name = aws_sagemaker_endpoint_configuration.chatbot.name
