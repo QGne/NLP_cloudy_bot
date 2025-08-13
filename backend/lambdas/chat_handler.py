@@ -25,36 +25,25 @@ def lambda_handler(event, context):
         else:
             body = event  # For direct invocation
         
-        message = body.get('message', '')
-        question = body.get('question')
-        context_text = body.get('context')
+        message = body.get('message', '').strip()
         session_id = body.get('session_id', str(uuid.uuid4()))
         
-        # Backward-compatible parsing: allow "question|||context" in message
-        if (not question) and message:
-            if '|||' in message:
-                parts = message.split('|||', 1)
-                question = parts[0].strip()
-                context_text = parts[1].strip()
-            else:
-                question = message.strip()
-        
-        # Validate required inputs for QA
-        if not question or not context_text:
+        # Validate required inputs for chat
+        if not message:
             return {
                 'statusCode': 400,
                 'headers': {
                     'Access-Control-Allow-Origin': '*',
                     'Content-Type': 'application/json'
                 },
-                'body': json.dumps({'error': 'Both question and context are required. Provide fields "question" and "context", or use "question|||context" in "message".'})
+                'body': json.dumps({'error': 'Message is required. Provide field "message".'})
             }
         
         # Generate AI response
-        ai_response = get_ai_response(question, context_text)
+        ai_response = get_ai_response(message)
         
         # Store conversation in DynamoDB
-        store_conversation(session_id, question, ai_response)
+        store_conversation(session_id, message, ai_response)
         
         # Return response
         return {
@@ -81,17 +70,14 @@ def lambda_handler(event, context):
             'body': json.dumps({'error': f'Internal server error: {str(e)}'})
         }
 
-def get_ai_response(question, context_text):
+def get_ai_response(message):
     """
-    Get answer from SageMaker endpoint using Hugging Face question-answering pipeline
+    Get response from SageMaker endpoint using Hugging Face text-generation pipeline
     """
     try:
-        # Prepare payload for HuggingFace QA model
+        # Prepare payload for HuggingFace text-generation model
         payload = {
-            "inputs": {
-                "question": question,
-                "context": context_text
-            }
+            "inputs": message
         }
         
         # Call SageMaker endpoint
@@ -104,19 +90,19 @@ def get_ai_response(question, context_text):
         # Parse response
         result = json.loads(response['Body'].read().decode())
         
-        # HF QA may return a dict or a list of dicts
+        # HF text-generation typically returns a list of dicts with 'generated_text'
         if isinstance(result, dict):
-            answer = result.get('answer') or result.get('generated_text') or ''
+            answer = result.get('generated_text') or result.get('answer') or ''
         elif isinstance(result, list) and len(result) > 0:
             first = result[0]
             if isinstance(first, dict):
-                answer = first.get('answer') or first.get('generated_text') or ''
+                answer = first.get('generated_text') or first.get('answer') or ''
             else:
                 answer = str(first)
         else:
             answer = ''
         
-        return answer if answer else "I'm sorry, I could not find an answer in the provided context."
+        return answer if answer else "I'm sorry, I don't have a response right now."
         
     except Exception as e:
         print(f"SageMaker error: {str(e)}")

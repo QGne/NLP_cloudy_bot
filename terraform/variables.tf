@@ -19,5 +19,5 @@ variable "aws_region" {
 variable "model_name" {
   description = "HuggingFace model name"
   type        = string
-  default     = "deepset/roberta-base-squad2"
+  default     = "microsoft/DialoGPT-medium"
 }
