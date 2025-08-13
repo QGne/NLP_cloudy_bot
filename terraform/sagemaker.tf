@@ -70,7 +70,7 @@ resource "aws_sagemaker_model" "chatbot" {
 
   primary_container {
     image = "763104351884.dkr.ecr.${data.aws_region.current.name}.amazonaws.com/huggingface-pytorch-inference:1.12-transformers4.21-cpu-py39-ubuntu20.04"
-    
+
     environment = {
       HF_MODEL_ID = var.model_name
       HF_TASK     = "text-generation"

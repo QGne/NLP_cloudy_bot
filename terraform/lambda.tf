@@ -61,12 +61,12 @@ resource "aws_iam_role_policy" "lambda_policy" {
 
 # Lambda function
 resource "aws_lambda_function" "chat_handler" {
-  filename         = "chat_handler.zip"
-  function_name    = "${var.project_name}-chat-handler-${random_id.suffix.hex}"
-  role            = aws_iam_role.lambda_role.arn
-  handler         = "chat_handler.lambda_handler"
-  runtime         = "python3.9"
-  timeout         = 30
+  filename      = "chat_handler.zip"
+  function_name = "${var.project_name}-chat-handler-${random_id.suffix.hex}"
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "chat_handler.lambda_handler"
+  runtime       = "python3.9"
+  timeout       = 30
 
   environment {
     variables = {
@@ -121,8 +121,8 @@ resource "aws_api_gateway_integration" "chat_lambda" {
   http_method = aws_api_gateway_method.chat_post.http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
-  uri                    = aws_lambda_function.chat_handler.invoke_arn
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.chat_handler.invoke_arn
 }
 
 # Lambda permission for API Gateway
