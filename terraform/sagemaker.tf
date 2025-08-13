@@ -28,8 +28,20 @@ resource "aws_iam_role" "sagemaker_role" {
       }
     ]
   })
+
+  tags = {
+    Name        = "${var.project_name}-sagemaker-role"
+    Environment = var.environment
+  }
 }
 
+# Attach the AWS managed policy for SageMaker execution
+resource "aws_iam_role_policy_attachment" "sagemaker_execution_role" {
+  role       = aws_iam_role.sagemaker_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
+}
+
+# Additional custom policy for specific S3 bucket access
 resource "aws_iam_role_policy" "sagemaker_policy" {
   name = "${var.project_name}-sagemaker-policy"
   role = aws_iam_role.sagemaker_role.id
@@ -53,11 +65,12 @@ resource "aws_iam_role_policy" "sagemaker_policy" {
       {
         Effect = "Allow"
         Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
         ]
-        Resource = "arn:aws:logs:*:*:*"
+        Resource = "*"
       }
     ]
   })
@@ -79,12 +92,17 @@ resource "aws_sagemaker_model" "chatbot" {
     image = data.aws_sagemaker_prebuilt_ecr_image.huggingface_inference.registry_path
 
     environment = {
-      HF_MODEL_ID                   = var.model_name
-      HF_TASK                       = "text-generation"
+      HF_MODEL_ID    = var.model_name
+      HF_TASK        = "text-generation"
       SAGEMAKER_CONTAINER_LOG_LEVEL = "20"
-      SAGEMAKER_REGION              = var.aws_region
+      SAGEMAKER_REGION = var.aws_region
     }
   }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.sagemaker_execution_role,
+    aws_iam_role_policy.sagemaker_policy
+  ]
 
   tags = {
     Name        = "${var.project_name}-model"
@@ -97,11 +115,11 @@ resource "aws_sagemaker_endpoint_configuration" "chatbot" {
   name = "${var.project_name}-endpoint-config-${random_id.suffix.hex}"
 
   production_variants {
-    variant_name           = "AllTraffic"
-    model_name             = aws_sagemaker_model.chatbot.name
-    initial_instance_count = 1
-    instance_type          = "ml.t2.medium"
-    initial_variant_weight = 1
+    variant_name                 = "AllTraffic"
+    model_name                  = aws_sagemaker_model.chatbot.name
+    initial_instance_count      = 1
+    instance_type              = "ml.t2.medium"
+    initial_variant_weight     = 1
   }
 
   tags = {
