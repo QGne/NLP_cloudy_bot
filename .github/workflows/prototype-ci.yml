@@ -146,12 +146,24 @@ jobs:
           exit 1
         fi
     
+    - name: Warm up endpoint via Lambda
+      run: |
+        LAMBDA_FUNCTION_NAME="${{ steps.terraform_output.outputs.lambda_function_name }}"
+        echo "Warming up Lambda: $LAMBDA_FUNCTION_NAME"
+        aws lambda invoke \
+          --function-name "$LAMBDA_FUNCTION_NAME" \
+          --payload '{"message":"warmup","session_id":"warmup"}' \
+          --cli-binary-format raw-in-base64-out \
+          warmup_response.json >/dev/null 2>&1 || true
+        cat warmup_response.json || true
+        rm -f warmup_response.json || true
+    
     - name: Test deployment
       run: |
         API_URL="${{ steps.terraform_output.outputs.api_gateway_url }}"
         echo "Testing API at: $API_URL"
         
-        http_code=$(curl -s -o response.txt -w "%{http_code}" -X POST "$API_URL/chat" \
+        http_code=$(curl -s -m 25 -o response.txt -w "%{http_code}" -X POST "$API_URL/chat" \
           -H "Content-Type: application/json" \
           -d '{"message":"Hello, this is a CI/CD test","session_id":"ci-test-123"}')
         echo "Status Code: $http_code"

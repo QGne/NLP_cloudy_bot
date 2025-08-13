@@ -4,11 +4,16 @@ import os
 import time
 import uuid
 from decimal import Decimal
+from botocore.config import Config
 
 # Initialize AWS clients
 aws_region = os.environ.get('AWS_REGION') or os.environ.get('AWS_DEFAULT_REGION') or 'us-east-1'
 dynamodb = boto3.resource('dynamodb', region_name=aws_region)
-sagemaker_runtime = boto3.client('sagemaker-runtime', region_name=aws_region)
+sagemaker_runtime = boto3.client(
+    'sagemaker-runtime',
+    region_name=aws_region,
+    config=Config(read_timeout=12, connect_timeout=3, retries={'max_attempts': 1, 'mode': 'standard'})
+)
 
 # Environment variables
 DYNAMODB_TABLE = os.environ['DYNAMODB_TABLE']
@@ -78,7 +83,7 @@ def get_ai_response(message):
         payload = {
             "inputs": message,
             "parameters": {
-                "max_length": 100,
+                "max_length": 64,
                 "num_return_sequences": 1,
                 "temperature": 0.7
             }

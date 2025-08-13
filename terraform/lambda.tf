@@ -67,6 +67,7 @@ resource "aws_lambda_function" "chat_handler" {
   handler       = "chat_handler.lambda_handler"
   runtime       = "python3.9"
   timeout       = 30
+  memory_size   = 512
 
   environment {
     variables = {

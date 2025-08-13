@@ -61,7 +61,18 @@ done
 
 echo "✅ SageMaker endpoint is ready!"
 
-# Step 5: Test deployment
+# Step 5: Warm up SageMaker via Lambda to avoid cold-start timeouts
+echo "🔥 Warming up endpoint via Lambda..."
+WARMUP_PAYLOAD='{"message":"warmup","session_id":"warmup"}'
+aws lambda invoke \
+  --function-name "$LAMBDA_FUNCTION_NAME" \
+  --payload "$WARMUP_PAYLOAD" \
+  --cli-binary-format raw-in-base64-out \
+  warmup_response.json >/dev/null 2>&1 || true
+cat warmup_response.json || true
+rm -f warmup_response.json || true
+
+# Step 6: Test deployment
 echo "🧪 Testing deployment..."
 cd cli
 python3 chatbot_cli.py --test-mode
