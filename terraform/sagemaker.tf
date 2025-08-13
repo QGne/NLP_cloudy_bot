@@ -1,4 +1,4 @@
-# terraform/sagemaker.tf
+# terraform/sagemaker.tf - IAM-friendly version without tags
 
 # S3 bucket for model storage
 resource "aws_s3_bucket" "model_bucket" {
@@ -12,7 +12,7 @@ resource "aws_s3_bucket_versioning" "model_bucket_versioning" {
   }
 }
 
-# IAM role for SageMaker
+# IAM role for SageMaker (no tags to avoid permission issues)
 resource "aws_iam_role" "sagemaker_role" {
   name = "${var.project_name}-sagemaker-role-${random_id.suffix.hex}"
 
@@ -28,11 +28,6 @@ resource "aws_iam_role" "sagemaker_role" {
       }
     ]
   })
-
-  tags = {
-    Name        = "${var.project_name}-sagemaker-role"
-    Environment = var.environment
-  }
 }
 
 # Attach the AWS managed policy for SageMaker execution
@@ -41,7 +36,7 @@ resource "aws_iam_role_policy_attachment" "sagemaker_execution_role" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
 }
 
-# Additional custom policy for specific S3 bucket access
+# Additional custom policy for specific S3 bucket access and ECR
 resource "aws_iam_role_policy" "sagemaker_policy" {
   name = "${var.project_name}-sagemaker-policy"
   role = aws_iam_role.sagemaker_role.id
@@ -76,11 +71,9 @@ resource "aws_iam_role_policy" "sagemaker_policy" {
   })
 }
 
-# Use a simpler approach with a known working image
-# Option 1: Use the latest available Hugging Face image
-data "aws_sagemaker_prebuilt_ecr_image" "huggingface_inference" {
-  repository_name = "huggingface-pytorch-inference"
-  image_tag       = "2.0.0-transformers4.28.1-cpu-py310-ubuntu20.04"
+# Use a known working SageMaker image URI
+locals {
+  sagemaker_image_uri = "763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:2.0.0-transformers4.28.1-cpu-py310-ubuntu20.04"
 }
 
 # SageMaker model
@@ -89,7 +82,7 @@ resource "aws_sagemaker_model" "chatbot" {
   execution_role_arn = aws_iam_role.sagemaker_role.arn
 
   primary_container {
-    image = data.aws_sagemaker_prebuilt_ecr_image.huggingface_inference.registry_path
+    image = local.sagemaker_image_uri
 
     environment = {
       HF_MODEL_ID                   = var.model_name
@@ -110,7 +103,7 @@ resource "aws_sagemaker_model" "chatbot" {
   }
 }
 
-# SageMaker endpoint configuration (using instance-based instead of serverless for stability)
+# SageMaker endpoint configuration
 resource "aws_sagemaker_endpoint_configuration" "chatbot" {
   name = "${var.project_name}-endpoint-config-${random_id.suffix.hex}"
 
