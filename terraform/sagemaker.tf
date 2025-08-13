@@ -66,7 +66,7 @@ resource "aws_iam_role_policy" "sagemaker_policy" {
 # Resolve a valid SageMaker prebuilt Hugging Face inference image URI (CPU)
 data "aws_sagemaker_prebuilt_ecr_image" "huggingface_cpu" {
   repository_name = "huggingface-pytorch-inference"
-  image_tag       = "1.13.1-transformers4.30.2-cpu-py39-ubuntu20.04"
+  image_tag       = "1.13.1-transformers4.28.1-cpu-py39-ubuntu20.04"
 }
 
 # SageMaker model
