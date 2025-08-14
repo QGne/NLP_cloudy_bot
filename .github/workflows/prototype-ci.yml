@@ -10,6 +10,7 @@ on:
 env:
   AWS_REGION: us-east-1
   PROJECT_NAME: chatbot-saas
+  TEARDOWN_ON_SUCCESS: "false"
 
 jobs:
   test:
@@ -188,6 +189,13 @@ jobs:
         echo "   git clone <repo> && cd chatbot-saas-prototype"
         echo "   export API_GATEWAY_URL=${{ steps.terraform-output.outputs.api_gateway_url }}"
         echo "   cd cli && python3 chatbot_cli.py"
+
+    - name: Tear down infrastructure on success (optional)
+      if: env.TEARDOWN_ON_SUCCESS == 'true'
+      run: |
+        cd terraform
+        terraform destroy -auto-approve
+        echo "🧹 Destroyed infra after successful test"
 
   cleanup-on-failure:
     name: Cleanup on Failure
