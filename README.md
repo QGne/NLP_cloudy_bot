@@ -30,7 +30,7 @@ NLP_cloudy_bot/
 ### 1. Clone and Setup
 ```bash
 # Clone the repository
-git clone <https://github.com/QGne/NLP_cloudy_bot.git>
+git clone https://github.com/QGne/NLP_cloudy_bot.git
 cd NLP_cloudy_bot
 
 # Verify prerequisites
@@ -113,5 +113,5 @@ terraform destroy
 
 ### 7. Quick Deploy
 ```bash
-git clone <https://github.com/QGne/NLP_cloudy_bot.git> && cd NLP_cloudy_bot && ./scripts/deploy.sh
+git clone https://github.com/QGne/NLP_cloudy_bot.git && cd NLP_cloudy_bot && ./scripts/deploy.sh
 ```
