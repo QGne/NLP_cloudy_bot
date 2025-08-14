@@ -79,13 +79,14 @@ def get_ai_response(message):
     Get response from SageMaker endpoint
     """
     try:
-        # Prepare payload for HuggingFace model
+        # Prepare payload for an instruction-following model (text2text)
         payload = {
-            "inputs": message,
+            "inputs": f"Instruction: {message}\n\nResponse:",
             "parameters": {
-                "max_length": 128,
-                "num_return_sequences": 1,
-                "temperature": 0.3,
+                "max_new_tokens": 128,
+                "temperature": 0.1,
+                "top_p": 0.9,
+                "do_sample": False
             }
         }
         
@@ -99,18 +100,19 @@ def get_ai_response(message):
         # Parse response
         result = json.loads(response['Body'].read().decode())
         
-        # Extract generated text
-        if isinstance(result, list) and len(result) > 0:
-            generated_text = result[0].get('generated_text', '') or ''
-            # Only strip the exact prefix if the model echoed the prompt verbatim
-            if generated_text.startswith(message):
-                ai_response = generated_text[len(message):].strip()
-            else:
-                ai_response = generated_text.strip()
-        else:
-            ai_response = "I'm sorry, I couldn't generate a response."
+        # Handle HuggingFace text2text output
+        ai_response = None
+        if isinstance(result, list) and result:
+            # HF pipeline for text2text usually returns list of dicts with 'generated_text'
+            generated_text = result[0].get('generated_text') or result[0].get('summary_text') or ''
+            ai_response = (generated_text or '').strip()
+        elif isinstance(result, dict):
+            ai_response = (result.get('generated_text') or result.get('text') or '').strip()
         
-        return ai_response if ai_response else "I'm here to help! Could you please rephrase your question?"
+        if not ai_response:
+            ai_response = "I'm here to help. Could you please rephrase your question?"
+        
+        return ai_response
         
     except Exception as e:
         print(f"SageMaker error: {str(e)}")

@@ -19,5 +19,5 @@ variable "aws_region" {
 variable "model_name" {
   description = "HuggingFace model name"
   type        = string
-  default     = "microsoft/DialoGPT-medium"
+  default     = "google/flan-t5-base"
 }

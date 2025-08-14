@@ -77,7 +77,7 @@ resource "aws_sagemaker_model" "chatbot" {
 
     environment = {
       HF_MODEL_ID = var.model_name
-      HF_TASK     = "text-generation"
+      HF_TASK     = "text2text-generation"
     }
   }
 
