@@ -83,9 +83,9 @@ def get_ai_response(message):
         payload = {
             "inputs": message,
             "parameters": {
-                "max_length": 64,
+                "max_length": 128,
                 "num_return_sequences": 1,
-                "temperature": 0.7
+                "temperature": 0.3,
             }
         }
         
@@ -101,12 +101,12 @@ def get_ai_response(message):
         
         # Extract generated text
         if isinstance(result, list) and len(result) > 0:
-            generated_text = result[0].get('generated_text', '')
-            # Clean up the response (remove original input)
-            if message in generated_text:
-                ai_response = generated_text.replace(message, '').strip()
+            generated_text = result[0].get('generated_text', '') or ''
+            # Only strip the exact prefix if the model echoed the prompt verbatim
+            if generated_text.startswith(message):
+                ai_response = generated_text[len(message):].strip()
             else:
-                ai_response = generated_text
+                ai_response = generated_text.strip()
         else:
             ai_response = "I'm sorry, I couldn't generate a response."
         
