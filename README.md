@@ -33,10 +33,10 @@ NLP_cloudy_bot/
 git clone https://github.com/QGne/NLP_cloudy_bot.git
 cd NLP_cloudy_bot
 
-# Verify prerequisites
-aws sts get-caller-identity  # Should return your AWS account info
+# Verify basic tools are installed
 terraform --version          # Should show v1.5+
 python3 --version           # Should show v3.9+
+aws --version               # Should show AWS CLI is installed
 ```
 
 
@@ -47,6 +47,13 @@ aws configure
 # Enter your AWS Secret Access Key  
 # Enter your default region (e.g., us-east-1)
 # Enter output format (json)
+```
+
+### Verify AWS Configuration:
+```bash
+# After configuring credentials, verify they work
+aws sts get-caller-identity  # Should return your AWS account info
+aws configure list           # Should show your configuration
 ```
 
 ### 3. Deploy the Application
