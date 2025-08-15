@@ -122,3 +122,6 @@ terraform destroy
 ```bash
 git clone https://github.com/QGne/NLP_cloudy_bot.git && cd NLP_cloudy_bot && ./scripts/deploy.sh
 ```
+
+## AI Use Statement:
+During the development of this assignment, I used a large language model (LLM) as a supportive tool for verifying syntax, understanding documentation, and refining debugging steps. All design decisions and implementation were my own.
